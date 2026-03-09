@@ -60,10 +60,32 @@ const LabelingTool = () => {
             const filtered = prev.filter(r => !(r.id == id && r.teori_warna === teori));
             return [...filtered, newResult];
         });
+
+        // Auto-scroll ke item berikutnya
+        setTimeout(() => {
+            const currentIndex = data.findIndex(item => item.id == id && item.teori_warna === teori);
+            if (currentIndex !== -1 && currentIndex < data.length - 1) {
+                const nextElement = document.getElementById(`row-${currentIndex + 1}`);
+                if (nextElement) {
+                    nextElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }, 100);
     };
 
     const handleClearLabel = (id, teori) => {
         setResults(prev => prev.filter(r => !(r.id == id && r.teori_warna === teori)));
+
+        // Auto-scroll ke item berikutnya (opsional, tapi konsisten)
+        setTimeout(() => {
+            const currentIndex = data.findIndex(item => item.id == id && item.teori_warna === teori);
+            if (currentIndex !== -1 && currentIndex < data.length - 1) {
+                const nextElement = document.getElementById(`row-${currentIndex + 1}`);
+                if (nextElement) {
+                    nextElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }, 100);
     };
 
     const handleDownload = (e) => {
@@ -115,6 +137,26 @@ const LabelingTool = () => {
             }
             setResults([]);
         }, 1000);
+    };
+
+    const handleHome = () => {
+        setData([]);
+        setView('home');
+        setStartId(1);
+        window.scrollTo(0, 0);
+    };
+
+    const handleClearAll = () => {
+        const currentIdentifiers = data.map(d => `${d.id}-${d.teori_warna}`);
+        setResults(prev => prev.filter(r => !currentIdentifiers.includes(`${r.id}-${r.teori_warna}`)));
+        
+        // Auto-scroll ke paling atas (ID pertama)
+        setTimeout(() => {
+            const firstElement = document.getElementById('row-0');
+            if (firstElement) {
+                firstElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
     };
 
     const handleNext = () => {
@@ -201,21 +243,37 @@ const LabelingTool = () => {
                     <h2 className="font-black text-slate-800 text-lg">Labeling Session</h2>
                     <p className="text-xs text-slate-500 font-medium">Antrian Simpan: <span className="text-blue-600 font-bold">{results.length}</span> data</p>
                 </div>
-                <button 
-                    type="button"
-                    onClick={handleDownload}
-                    disabled={results.length < data.length || results.length === 0}
-                    className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-100 disabled:opacity-30 transition-all"
-                >
-                    Stop & Simpan
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        type="button"
+                        onClick={handleHome}
+                        className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
+                        title="Kembali ke Beranda"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={handleDownload}
+                        disabled={results.length < data.length || results.length === 0}
+                        className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-100 disabled:opacity-30 transition-all"
+                    >
+                        Stop & Simpan
+                    </button>
+                </div>
             </div>
 
             <div className="max-w-4xl mx-auto p-4 sm:p-8 space-y-8">
                 {data.length > 0 ? data.map((item, idx) => {
                     const isLabeled = results.find(r => r.id == item.id && r.teori_warna === item.teori_warna);
                     return (
-                        <div key={`${item.id}-${item.teori_warna}`} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden transform transition-all hover:shadow-md">
+                        <div 
+                            key={`${item.id}-${item.teori_warna}`} 
+                            id={`row-${idx}`}
+                            className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden transform transition-all hover:shadow-md"
+                        >
                             <div className="p-4 sm:p-6 flex flex-col sm:row gap-6">
                                 {/* Info Section */}
                                 <div className="sm:w-32 flex-shrink-0">
@@ -285,6 +343,19 @@ const LabelingTool = () => {
                         Tidak ada data yang tersedia untuk ID ini.
                     </div>
                 )}
+                {data.length > 0 && (
+                    <div className="flex justify-center pb-20">
+                        <button 
+                            onClick={handleClearAll}
+                            className="flex items-center gap-2 px-8 py-4 bg-white border-2 border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-2xl font-black text-sm transition-all shadow-sm active:scale-95"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Hapus Semua Pilihan di ID Ini
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Bottom Nav */}
@@ -292,14 +363,16 @@ const LabelingTool = () => {
                 <button 
                     onClick={handleNext}
                     disabled={loading || data.length === 0}
-                    className="max-w-md mx-auto w-full bg-slate-900 text-white py-5 rounded-3xl font-black text-lg shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all pointer-events-auto shadow-slate-300 disabled:opacity-50"
+                    className="relative max-w-md mx-auto w-full bg-slate-900 text-white py-5 rounded-3xl font-black text-lg shadow-2xl flex items-center justify-center active:scale-95 transition-all pointer-events-auto shadow-slate-300 disabled:opacity-50"
                 >
                     {loading ? (
                         <span>Memuat...</span>
                     ) : (
                         <>
-                            <span>Lanjut (6 Data)</span>
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="9 5l7 7-7 7"></path></svg>
+                            <span>Lanjutkan Labeling</span>
+                            <svg className="absolute right-8 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"></path>
+                            </svg>
                         </>
                     )}
                 </button>

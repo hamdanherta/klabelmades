@@ -35,6 +35,11 @@ class CsvLabelingController extends Controller
             $csv = Reader::createFromString($content);
             $csv->setHeaderOffset(0);
 
+            // Validation: id_baru must be 1, 7, 13, 19, ... (1 + 6k)
+            if (($startId - 1) % 6 !== 0) {
+                return response()->json(['error' => 'Harus mulai dari id_baru 1, 7, 13, 19, dst (Kelipatan 6 + 1)'], 400);
+            }
+
             // Find the index of the start_id
             $records = $csv->getRecords();
             $items = [];
@@ -42,12 +47,13 @@ class CsvLabelingController extends Controller
             $count = 0;
 
             foreach ($records as $offset => $record) {
-                if ($record['id'] == $startId || $found) {
+                $currentIdBaru = $record['id_baru'] ?? $record['id'];
+                if ($currentIdBaru == $startId || $found) {
                     $found = true;
 
-                    // Logic: Extract first hex from hasil_ekstraksi_warna
+                    // Logic: Extract first hex from hasil_ektraksi_warna
                     $record['extracted_hex'] = $this->getFirstHex($record[self::COL_EXTRACTION]);
-                    $items[] = array_merge($record, ['id_baru' => $record['id_baru'] ?? $record['id']]);
+                    $items[] = array_merge($record, ['id_baru' => $currentIdBaru]);
                     $count++;
                 }
                 if ($count >= $stepSize)
@@ -75,7 +81,11 @@ class CsvLabelingController extends Controller
 
     public function download(Request $request)
     {
-        $results = $request->input('results', []);
+        $results = $request->input('results');
+        if (!$results && $request->has('results_json')) {
+            $results = json_decode($request->input('results_json'), true);
+        }
+
         if (empty($results)) {
             return response()->json(['error' => 'No data to export'], 400);
         }
@@ -84,7 +94,7 @@ class CsvLabelingController extends Controller
         $idAkhir = end($results)['id_baru'] ?? 'end';
         $filename = "hasil_label_{$idAwal}-{$idAkhir}.csv";
 
-        $csv = Writer::createFromFileObject(new \SplTempFileObject());
+        $csv = Writer::createFromString('');
         $csv->insertOne(['id', 'id_baru', 'teori_warna', self::COL_EXTRACTION, self::COL_COMBO, 'label_kecocokan']);
 
         foreach ($results as $row) {
@@ -97,10 +107,14 @@ class CsvLabelingController extends Controller
                 $row['label_kecocokan']
             ]);
         }
+        $content = (string) $csv;
 
-        return Response::make((string) $csv, 200, [
+        return response($content, 200, [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length' => strlen($content),
+            'Pragma' => 'no-cache',
+            'Expires' => '0'
         ]);
     }
 }

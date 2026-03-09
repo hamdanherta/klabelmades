@@ -7,24 +7,38 @@ const LabelingTool = () => {
     const [data, setData] = useState([]);
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [errorModal, setErrorModal] = useState({ show: false, message: '' });
 
     const fetchData = async (id) => {
+        const numId = parseInt(id);
+        // Validasi: id_baru harus 1, 7, 13, 19, ... (1 + 6k)
+        if (isNaN(numId) || (numId - 1) % 6 !== 0) {
+            setErrorModal({ 
+                show: true, 
+                message: `ID Tidak Valid: ${id || 'Kosong'}. Harap mulai dari id_baru kelipatan 6 + 1 (Contoh: 1, 7, 13, 19, dst).` 
+            });
+            return;
+        }
+
         setLoading(true);
         try {
-            const response = await fetch(`/api/data?start_id=${id}`);
-            if (!response.ok) throw new Error("Server error");
-            
+            const response = await fetch(`/api/data?start_id=${numId}`);
             const json = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(json.error || "Gagal mengambil data");
+            }
+            
             if (json.data && Array.isArray(json.data)) {
                 setData(json.data);
                 setView('labeling');
                 window.scrollTo(0, 0);
             } else {
-                throw new Error("Data tidak valid");
+                throw new Error("Data tidak valid di server");
             }
         } catch (error) {
             console.error(error);
-            alert("Gagal mengambil data. Pastikan server jalan dan dataset.csv ada.");
+            setErrorModal({ show: true, message: error.message });
         }
         setLoading(false);
     };
@@ -48,53 +62,100 @@ const LabelingTool = () => {
         });
     };
 
-    const handleDownload = async () => {
+    const handleClearLabel = (id, teori) => {
+        setResults(prev => prev.filter(r => !(r.id == id && r.teori_warna === teori)));
+    };
+
+    const handleDownload = (e) => {
+        if (e) e.preventDefault();
         if (results.length === 0) return;
+
+        // Validasi Urutan: id_baru harus berurutan (n, n+1, n+2, ...)
+        for (let i = 1; i < results.length; i++) {
+            const currentId = parseInt(results[i].id_baru);
+            const prevId = parseInt(results[i-1].id_baru);
+            if (currentId !== prevId + 1) {
+                setErrorModal({
+                    show: true,
+                    message: `ID kamu tidak berurutan (ID ${prevId} diikuti ID ${currentId}). Harap ulangi pilihan atau hapus dan tata kembali urutannya.`
+                });
+                return;
+            }
+        }
         
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const csrfToken = csrfMeta ? csrfMeta.content : '';
 
-        try {
-            const response = await fetch('/api/download', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'X-CSRF-TOKEN': csrfToken 
-                },
-                body: JSON.stringify({ results })
-            });
-            
-            if (!response.ok) throw new Error("Gagal download");
+        // Gunakan form submit agar browser menangani unduhan secara native
+        // Ini lebih aman untuk memastikan nama file dan ekstensi .csv tetap terjaga
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/api/download';
+        form.style.display = 'none';
 
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            
-            const idAwal = results[0]?.id_baru || 'start';
-            const idAkhir = results[results.length - 1]?.id_baru || 'end';
-            
-            a.href = url;
-            a.download = `hasil_label_${idAwal}-${idAkhir}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            
-            setResults([]); // Reset memory after download as requested
-        } catch (error) {
-            alert("Terjadi kesalahan saat mengunduh file.");
-        }
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        const resultsInput = document.createElement('input');
+        resultsInput.type = 'hidden';
+        resultsInput.name = 'results_json';
+        resultsInput.value = JSON.stringify(results);
+        form.appendChild(resultsInput);
+
+        document.body.appendChild(form);
+        form.submit();
+
+        // Bersihkan form setelah submit dan reset antrian
+        setTimeout(() => {
+            if (document.body.contains(form)) {
+                document.body.removeChild(form);
+            }
+            setResults([]);
+        }, 1000);
     };
 
     const handleNext = () => {
         if (data.length === 0) return;
-        const lastId = parseInt(data[data.length - 1].id);
-        fetchData(lastId + 1);
+        const lastIdBaru = parseInt(data[data.length - 1].id_baru);
+        fetchData(lastIdBaru + 1);
+    };
+
+    // Modal Component
+    const Modal = ({ show, message, onClose }) => {
+        if (!show) return null;
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 text-center transform animate-in zoom-in-95 duration-300 scale-105 border-4 border-rose-50">
+                    <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <h3 className="text-xl font-black text-slate-800 mb-2">Peringatan!</h3>
+                    <p className="text-slate-500 text-sm mb-6 leading-relaxed font-medium">{message}</p>
+                    <button 
+                        onClick={onClose}
+                        className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-slate-200"
+                    >
+                        Saya Mengerti
+                    </button>
+                </div>
+            </div>
+        );
     };
 
     if (view === 'home') {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
                 <Head title="Home - Labeling Tool" />
+                <Modal 
+                    show={errorModal.show} 
+                    message={errorModal.message} 
+                    onClose={() => setErrorModal({ show: false, message: '' })} 
+                />
                 <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center border border-slate-100">
                     <div className="w-20 h-20 bg-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-blue-200">
                         <span className="text-4xl">🎨</span>
@@ -130,14 +191,20 @@ const LabelingTool = () => {
             <Head title={`Labeling ID ${data[0]?.id || ''}`} />
             
             {/* Header Sticky */}
+            <Modal 
+                show={errorModal.show} 
+                message={errorModal.message} 
+                onClose={() => setErrorModal({ show: false, message: '' })} 
+            />
             <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-3 sm:px-8 flex items-center justify-between">
                 <div>
                     <h2 className="font-black text-slate-800 text-lg">Labeling Session</h2>
                     <p className="text-xs text-slate-500 font-medium">Antrian Simpan: <span className="text-blue-600 font-bold">{results.length}</span> data</p>
                 </div>
                 <button 
+                    type="button"
                     onClick={handleDownload}
-                    disabled={results.length === 0}
+                    disabled={results.length < data.length || results.length === 0}
                     className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-100 disabled:opacity-30 transition-all"
                 >
                     Stop & Simpan
@@ -196,6 +263,13 @@ const LabelingTool = () => {
                                         className={`px-6 py-3 rounded-2xl font-bold text-sm transition-all ${isLabeled?.label_kecocokan === 0 ? 'bg-rose-600 text-white shadow-lg shadow-rose-100 scale-105' : 'bg-white text-slate-600 hover:bg-rose-50'}`}
                                     >
                                         Tidak
+                                    </button>
+                                    <button 
+                                        onClick={() => handleClearLabel(item.id, item.teori_warna)}
+                                        className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl font-bold text-xs transition-all active:scale-95"
+                                        title="Hapus Pilihan"
+                                    >
+                                        Hapus
                                     </button>
                                 </div>
                                 {isLabeled && (

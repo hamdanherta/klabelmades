@@ -92,7 +92,7 @@ class CsvLabelingController extends Controller
 
         $idAwal = $results[0]['id_baru'] ?? 'start';
         $idAkhir = end($results)['id_baru'] ?? 'end';
-        $filename = "hasil_label_{$idAwal}-{$idAkhir}.csv";
+        $filename = "hasil_label_id_baru_{$idAwal}-{$idAkhir}.csv";
 
         $csv = Writer::createFromString('');
         $csv->insertOne(['id', 'id_baru', 'teori_warna', self::COL_EXTRACTION, self::COL_COMBO, 'label_kecocokan']);

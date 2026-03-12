@@ -53,7 +53,7 @@ const LabelingTool = () => {
             id,
             id_baru: item.id_baru || item.id,
             teori_warna: teori,
-            hasil_ektraksi_warna: item.hasil_ektraksi_warna, // Original full string
+            hasil_ekstraksi_warna_hex: item.hasil_ekstraksi_warna_hex, // Original full string
             warna_kombinasi: item.warna_kombinasi,
             label_kecocokan: val,
         };
@@ -143,7 +143,10 @@ const LabelingTool = () => {
         const resultsInput = document.createElement('input');
         resultsInput.type = 'hidden';
         resultsInput.name = 'results_json';
-        resultsInput.value = JSON.stringify(results);
+        resultsInput.value = JSON.stringify(results.map(r => ({
+            ...r,
+            hasil_ekstraksi_warna_hex: r.hasil_ekstraksi_warna_hex, // explicitly mapping for clarity if needed, though already updated in handleLabel
+        })));
         form.appendChild(resultsInput);
 
         document.body.appendChild(form);

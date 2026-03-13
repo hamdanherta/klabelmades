@@ -202,7 +202,7 @@ const LabelingTool = () => {
         if (uniqueIdsCount >= 300) {
             setErrorModal({
                 show: true,
-                message: "Data telah mencapai 12 data, Harap Simpan Dulu.",
+                message: "Maksimal 300 Data, Harap Simpan Dulu.",
                 buttonText: "Oke, Baik"
             });
             return;

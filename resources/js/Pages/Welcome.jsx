@@ -7,7 +7,7 @@ const LabelingTool = () => {
     const [data, setData] = useState([]);
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [errorModal, setErrorModal] = useState({ show: false, message: "" });
+    const [errorModal, setErrorModal] = useState({ show: false, message: "", buttonText: "Saya Mengerti" });
     const [hasSaved, setHasSaved] = useState(false);
 
     const fetchData = async (id) => {
@@ -217,6 +217,15 @@ const LabelingTool = () => {
             return;
         }
 
+        if (results.length >= 300) {
+            setErrorModal({
+                show: true,
+                message: "Data telah mencapai 300 data, Harap Simpan Dulu.",
+                buttonText: "oke baik"
+            });
+            return;
+        }
+
         const lastIdBaru = parseInt(data[data.length - 1].id_baru);
         fetchData(lastIdBaru + 1);
     };
@@ -240,7 +249,7 @@ const LabelingTool = () => {
         );
 
     // Modal Component
-    const Modal = ({ show, message, onClose }) => {
+    const Modal = ({ show, message, onClose, buttonText }) => {
         if (!show) return null;
         return (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -275,7 +284,7 @@ const LabelingTool = () => {
                         }}
                         className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-slate-200"
                     >
-                        Saya Mengerti
+                        {buttonText || errorModal.buttonText || "Saya Mengerti"}
                     </button>
                 </div>
             </div>
@@ -289,7 +298,8 @@ const LabelingTool = () => {
                 <Modal
                     show={errorModal.show}
                     message={errorModal.message}
-                    onClose={() => setErrorModal({ show: false, message: "" })}
+                    buttonText={errorModal.buttonText}
+                    onClose={() => setErrorModal({ ...errorModal, show: false })}
                 />
                 <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center border border-slate-100">
                     <div className="w-20 h-20 bg-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-blue-200">
@@ -336,7 +346,8 @@ const LabelingTool = () => {
             <Modal
                 show={errorModal.show}
                 message={errorModal.message}
-                onClose={() => setErrorModal({ show: false, message: "" })}
+                buttonText={errorModal.buttonText}
+                onClose={() => setErrorModal({ ...errorModal, show: false })}
             />
             <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-3 sm:px-8 flex items-center justify-between">
                 <div>

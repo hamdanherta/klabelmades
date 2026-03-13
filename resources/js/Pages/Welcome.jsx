@@ -110,9 +110,11 @@ const LabelingTool = () => {
 
     const handleDownload = (e) => {
         if (e) e.preventDefault();
-        const isSequential = results.every((res, i) => {
+        const uniqueIdsSet = new Set(results.map(r => parseInt(r.id_baru)));
+        const uniqueIdsSorted = Array.from(uniqueIdsSet).sort((a, b) => a - b);
+        const isSequential = uniqueIdsSorted.every((id, i) => {
             if (i === 0) return true;
-            return parseInt(res.id_baru) === parseInt(results[i - 1].id_baru) + 1;
+            return id === uniqueIdsSorted[i - 1] + 1;
         });
 
         if (!isSequential) {
@@ -193,19 +195,24 @@ const LabelingTool = () => {
     const handleNext = () => {
         if (data.length === 0) return;
 
-        const isSequential = data.every(item => {
-            const resultIndex = results.findIndex(r => r.id == item.id && r.teori_warna === item.teori_warna);
-            if (resultIndex === -1) return false;
-            
-            // Cek urutan internal results untuk batch ini
-            // Tapi karena kita mau cek urutan absolut id_baru:
-            return true; // placeholder behavior, we rely on results order
-        });
+        // Check 300-ID_BARU limit first (Unique granular id_baru count)
+        const uniqueIdsSet = new Set(results.map(r => parseInt(r.id_baru)));
+        const uniqueIdsCount = uniqueIdsSet.size;
+        
+        if (uniqueIdsCount >= 300) {
+            setErrorModal({
+                show: true,
+                message: "Data telah mencapai 12 data, Harap Simpan Dulu.",
+                buttonText: "Oke, Baik"
+            });
+            return;
+        }
 
         // Validasi Urutan id_baru di results
-        const isResultsSequential = results.every((res, i) => {
+        const uniqueIdsSorted = Array.from(uniqueIdsSet).sort((a, b) => a - b);
+        const isResultsSequential = uniqueIdsSorted.every((id, i) => {
             if (i === 0) return true;
-            return parseInt(res.id_baru) === parseInt(results[i - 1].id_baru) + 1;
+            return id === uniqueIdsSorted[i - 1] + 1;
         });
 
         if (!isResultsSequential) {
@@ -213,15 +220,6 @@ const LabelingTool = () => {
                 show: true,
                 message: `ID kamu tidak berurutan. Harap ulangi pilihan atau hapus dan tata kembali urutannya.`,
                 isSequenceError: true
-            });
-            return;
-        }
-
-        if (results.length >= 300) {
-            setErrorModal({
-                show: true,
-                message: "Data telah mencapai 300 data, Harap Simpan Dulu.",
-                buttonText: "oke baik"
             });
             return;
         }
@@ -357,7 +355,7 @@ const LabelingTool = () => {
                     <p className="text-xs text-slate-500 font-medium">
                         Antrian Simpan:{" "}
                         <span className="text-blue-600 font-bold">
-                            {results.length}
+                            {new Set(results.map(r => parseInt(r.id_baru))).size}
                         </span>{" "}
                         data
                     </p>
